@@ -1,0 +1,3 @@
+#define MAX_LEN 200
+#define DEFAULT_PORT 16554
+#define BUFFSIZE 2048
