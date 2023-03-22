@@ -1,5 +1,6 @@
 #include "chatserver.h"
 #include "../common/chatroom.h"
+#include <iostream>
 
 ChatServer::ChatServer()
 {
@@ -43,15 +44,18 @@ int ChatServer::listenClient()
     perror("Listen failed");
     return -1;
   }
+  struct kevent events_to_monitor[1];
+  struct kevent event_data[1];
+
   return 0;
 }
 
-void ChatServer::start()
+void ChatServer::run()
 {
   char buff[BUFFSIZE];
+  this->ct_socket = accept(this->sv_socket, NULL, NULL);
   while (true)
   {
-    this->ct_socket = accept(this->sv_socket, NULL, NULL);
     if (this->ct_socket == -1)
     {
       perror("Accept failed");
@@ -59,9 +63,21 @@ void ChatServer::start()
     }
     bzero(buff, BUFFSIZE);
     // 对应伪代码中的recv(connfd, buff);
-    recv(this->ct_socket, buff, BUFFSIZE - 1, 0);
+    int num_recv = recv(this->ct_socket, buff, BUFFSIZE - 1, 0);
+    if (num_recv < 0)
+    {
+      perror("Recv failed");
+      break;
+    }
+    if (num_recv == 0)
+    {
+      // 若向已关闭的socket发送消息，内核会向进程发送一个SIGPIPE信号，进程默认行为是终止进程
+      std::cout << "Client disconnected" << std::endl;
+      break;
+    }
     printf("Recv: %s\n", buff);
-    close(this->ct_socket);
+    memcpy(buff, "Hello, I have received your message.", BUFFSIZE);
+    send(this->ct_socket, buff, BUFFSIZE, 0);
   }
 
   this->stop();

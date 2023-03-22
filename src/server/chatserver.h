@@ -4,10 +4,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/errno.h>
+#include <sys/event.h>
 #include <netinet/in.h>
 #include <signal.h>
-#include <thread>
-#include <mutex>
 #include <vector>
 
 class ChatServer
@@ -18,12 +17,16 @@ public:
   int port;
   struct sockaddr_in server_address;
 
+private:
+  int event_fd;
+  std::vector<int> clients;
+
 public:
   ChatServer();
   ~ChatServer();
   void init();
   void setPort(int port);
   int listenClient();
-  void start();
+  void run();
   int stop();
 };

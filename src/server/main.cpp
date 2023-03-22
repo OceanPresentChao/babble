@@ -31,5 +31,5 @@ int main()
   {
     std::cout << "listen success!" << std::endl;
   }
-  Server.start();
+  Server.run();
 }

@@ -9,14 +9,16 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <thread>
-#include <mutex>
-#include <vector>
 
 class ChatClient
 {
 public:
   int ct_socket;
   struct sockaddr_in server_address;
+
+private:
+  int port;
+  std::string host;
 
 public:
   ChatClient();
@@ -25,10 +27,8 @@ public:
   void setPort(int port);
   void init();
   int connectServer();
-  int sendMessage();
+  std::string sendMessage();
   int disconnect();
-
-private:
-  int port;
-  std::string host;
+  void run();
+  static void receiveMessage(int client_socket);
 };

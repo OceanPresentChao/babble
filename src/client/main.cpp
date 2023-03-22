@@ -1,18 +1,27 @@
+#include <signal.h>
 #include <iostream>
 #include "chatclient.h"
 #include "../common/chatroom.h"
 
 json Config;
-ChatClient client;
+ChatClient Client;
+
+void stopClient(int p)
+{
+  Client.disconnect();
+  std::cout << "client stop!" << std::endl;
+  exit(0);
+}
 
 int main()
 {
+  signal(SIGINT, stopClient);
   Config = loadConfig("./config.json");
-  client.setHost(Config["client"]["host"]);
-  client.setPort(Config["client"]["port"]);
-  client.init();
+  Client.setHost(Config["client"]["host"]);
+  Client.setPort(Config["client"]["port"]);
+  Client.init();
   int flag;
-  flag = client.connectServer();
+  flag = Client.connectServer();
   if (flag == -1)
   {
     std::cout << "Connection failed!";
@@ -22,6 +31,6 @@ int main()
   {
     std::cout << "Connection success!";
   }
-  client.sendMessage();
+  Client.run();
   return 0;
 }

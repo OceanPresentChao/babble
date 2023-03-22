@@ -1,5 +1,6 @@
 #include "chatclient.h"
 #include "../common/chatroom.h"
+#include <iostream>
 
 ChatClient::ChatClient()
 {
@@ -52,12 +53,46 @@ int ChatClient::disconnect()
   return 0;
 }
 
-int ChatClient::sendMessage()
+std::string ChatClient::sendMessage()
 {
   char buff[BUFFSIZE];
   bzero(buff, sizeof(buff));
   printf("Please input: ");
   scanf("%s", buff);
   send(this->ct_socket, buff, strlen(buff), 0);
-  return 0;
+  return std::string(buff);
+}
+
+void ChatClient::receiveMessage(int client_fd)
+{
+  while (true)
+  {
+    char recvMsg[BUFFSIZE];
+    bzero(recvMsg, sizeof(recvMsg));
+    int num_recv = recv(client_fd, recvMsg, BUFFSIZE, 0);
+    if (-1 == num_recv || 0 == num_recv)
+    {
+      std::cout << "Client: No message received" << std::endl;
+      break;
+    }
+    std::cout << "num_recv: " << num_recv << std::endl;
+    std::cout << "msg_recv: " << recvMsg << std::endl;
+  }
+}
+
+void ChatClient::run()
+{
+  std::cout << "client run" << std::endl;
+  std::thread recv_thread(ChatClient::receiveMessage, this->ct_socket);
+  recv_thread.detach();
+  while (true)
+  {
+    if (this->sendMessage() == "exit")
+    {
+      std::cout << "client exit" << std::endl;
+      break;
+    }
+  }
+  this->disconnect();
+  exit(0);
 }
