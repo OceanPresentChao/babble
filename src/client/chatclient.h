@@ -12,15 +12,17 @@
 #include <mutex>
 #include <vector>
 
-class Client
+class ChatClient
 {
 public:
   int ct_socket;
   struct sockaddr_in server_address;
 
 public:
-  Client(std::string host, int port);
-  ~Client();
+  ChatClient();
+  ~ChatClient();
+  void setHost(std::string host);
+  void setPort(int port);
   void init();
   int connectServer();
   int sendMessage();

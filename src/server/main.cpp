@@ -1,12 +1,15 @@
 #include <iostream>
-#include "server.h"
+#include <fstream>
+#include <string>
+#include "chatserver.h"
 #include "../common/chatroom.h"
 
-Server server(DEFAULT_PORT);
+json Config;
+ChatServer Server;
 
 void stopServer(int p)
 {
-  server.stop();
+  Server.stop();
   std::cout << "server stop!" << std::endl;
   exit(0);
 }
@@ -14,9 +17,11 @@ void stopServer(int p)
 int main()
 {
   signal(SIGINT, stopServer);
+  Config = loadConfig("config.json");
+  Server.setPort(Config["server"]["port"]);
+  Server.init();
   int flag;
-  server.init();
-  flag = server.listenClient();
+  flag = Server.listenClient();
   if (flag != 0)
   {
     perror("listen failed!");
@@ -26,5 +31,5 @@ int main()
   {
     std::cout << "listen success!" << std::endl;
   }
-  server.start();
+  Server.start();
 }

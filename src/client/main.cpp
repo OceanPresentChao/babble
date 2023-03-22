@@ -1,11 +1,17 @@
-#include "client.h"
-#include "../common/chatroom.h"
 #include <iostream>
+#include "chatclient.h"
+#include "../common/chatroom.h"
+
+json Config;
+ChatClient client;
+
 int main()
 {
-  int flag;
-  Client client("127.0.0.1", DEFAULT_PORT);
+  Config = loadConfig("./config.json");
+  client.setHost(Config["client"]["host"]);
+  client.setPort(Config["client"]["port"]);
   client.init();
+  int flag;
   flag = client.connectServer();
   if (flag == -1)
   {

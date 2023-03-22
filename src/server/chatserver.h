@@ -10,7 +10,7 @@
 #include <mutex>
 #include <vector>
 
-class Server
+class ChatServer
 {
 public:
   int ct_socket;
@@ -19,9 +19,10 @@ public:
   struct sockaddr_in server_address;
 
 public:
-  Server(int port);
-  ~Server();
+  ChatServer();
+  ~ChatServer();
   void init();
+  void setPort(int port);
   int listenClient();
   void start();
   int stop();

@@ -1,16 +1,26 @@
-#include "client.h"
+#include "chatclient.h"
 #include "../common/chatroom.h"
 
-Client::Client(std::string host, int port) : port(port), host(host)
+ChatClient::ChatClient()
 {
 }
 
-Client::~Client()
+ChatClient::~ChatClient()
 {
   this->disconnect();
 }
 
-void Client::init()
+void ChatClient::setHost(std::string host)
+{
+  this->host = host;
+}
+
+void ChatClient::setPort(int port)
+{
+  this->port = port;
+}
+
+void ChatClient::init()
 {
   // bzero() 会将内存块（字符串）的前n个字节清零;
   bzero(&this->server_address, sizeof(this->server_address));
@@ -19,7 +29,7 @@ void Client::init()
   this->server_address.sin_port = htons(this->port);
 }
 
-int Client::connectServer()
+int ChatClient::connectServer()
 {
   this->ct_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -36,13 +46,13 @@ int Client::connectServer()
   return 0;
 }
 
-int Client::disconnect()
+int ChatClient::disconnect()
 {
   close(this->ct_socket);
   return 0;
 }
 
-int Client::sendMessage()
+int ChatClient::sendMessage()
 {
   char buff[BUFFSIZE];
   bzero(buff, sizeof(buff));

@@ -1,16 +1,21 @@
-#include "server.h"
+#include "chatserver.h"
 #include "../common/chatroom.h"
 
-Server::Server(int port) : port(port)
+ChatServer::ChatServer()
 {
 }
 
-Server::~Server()
+ChatServer::~ChatServer()
 {
   this->stop();
 }
 
-void Server::init()
+void ChatServer::setPort(int port)
+{
+  this->port = port;
+}
+
+void ChatServer::init()
 {
   // bzero() 会将内存块（字符串）的前n个字节清零;
   bzero(&this->server_address, sizeof(this->server_address));
@@ -19,7 +24,7 @@ void Server::init()
   this->server_address.sin_port = htons(this->port);
 }
 
-int Server::listenClient()
+int ChatServer::listenClient()
 {
   this->sv_socket = socket(AF_INET, SOCK_STREAM, 0);
   if (this->sv_socket == -1)
@@ -41,7 +46,7 @@ int Server::listenClient()
   return 0;
 }
 
-void Server::start()
+void ChatServer::start()
 {
   char buff[BUFFSIZE];
   while (true)
@@ -62,7 +67,7 @@ void Server::start()
   this->stop();
 }
 
-int Server::stop()
+int ChatServer::stop()
 {
   close(this->sv_socket);
   printf("Close Server\n");
