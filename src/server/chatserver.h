@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 #include <sys/event.h>
+#include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
@@ -22,10 +23,11 @@ public:
 
 private:
   int max_connection;
+  std::map<int, struct sockaddr_in> client_addrs;
+  std::set<int> client_fds;
+  // io multiplexing
   int max_fd;
   fd_set fds;
-  std::set<int> client_fds;
-  std::map<int, struct sockaddr_in> client_addrs;
 
 public:
   ChatServer();
@@ -35,13 +37,13 @@ public:
   int listenClient();
   void run();
   int stop();
+  void sendMessage(int client_fd, babble::BabbleProtocol code, std::string message);
+  void broadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group);
 
 private:
   void handleNewConnection();
   void handleNewMessage(int client_fd);
   void handleClientExit(int client_fd);
-  void broadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group);
-  void sendMessage(int client_fd, babble::BabbleProtocol code, std::string message);
   int getOnlineCount();
   std::string getClientName(int client_fd);
 };

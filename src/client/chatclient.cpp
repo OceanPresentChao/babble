@@ -1,4 +1,4 @@
-#include "chatclient.h"
+#include "ChatClient.h"
 #include "../common/chatroom.h"
 #include <iostream>
 
@@ -65,19 +65,20 @@ int ChatClient::sendMessage(std::string message, int to)
   return message.size();
 }
 
-void ChatClient::receiveMessage(int client_fd)
+void ChatClient::receiveMessage(void *client)
 {
+  ChatClient *chatClient = (ChatClient *)client;
   while (true)
   {
-    std::string message = "";
-    int num_recv = babble::recvMessage(client_fd, message);
+    std::string rawMsg = "";
+    int num_recv = babble::recvMessage(chatClient->ct_socket, rawMsg);
     if (num_recv <= 0)
     {
       std::cout << "Tip: No Message Received!" << std::endl;
       break;
     }
-    std::cout << "num_recv: " << num_recv << std::endl;
-    std::cout << "msg_recv: " << std::endl;
+    json j = json::parse(rawMsg);
+    std::string message = j["message"].get<std::string>();
     std::cout << message << std::endl;
   }
 }
@@ -85,7 +86,7 @@ void ChatClient::receiveMessage(int client_fd)
 void ChatClient::run()
 {
   std::cout << "client run" << std::endl;
-  std::thread t1(ChatClient::receiveMessage, this->ct_socket);
+  std::thread t1(ChatClient::receiveMessage, (void *)this);
   this->recv_thread = std::move(t1);
   this->recv_thread.detach();
   while (true)

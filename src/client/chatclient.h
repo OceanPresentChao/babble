@@ -32,5 +32,5 @@ public:
   int connectServer();
   int disconnect();
   int sendMessage(std::string, int to);
-  static void receiveMessage(int client_socket);
+  static void receiveMessage(void *client);
 };

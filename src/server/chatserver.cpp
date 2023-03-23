@@ -1,4 +1,4 @@
-#include "chatserver.h"
+#include "ChatServer.h"
 #include "../common/chatroom.h"
 #include <iostream>
 
@@ -35,6 +35,13 @@ int ChatServer::listenClient()
     perror("Socket creation failed");
     return -1;
   }
+  if (ioctl(this->sv_socket, FIONBIO) < 0)
+  {
+    perror("ioctl() failed");
+    close(this->sv_socket);
+    exit(-1);
+  }
+
   if (bind(this->sv_socket, (struct sockaddr *)&this->server_address, sizeof(this->server_address)) == -1)
   {
     perror("Bind failed");
@@ -74,7 +81,6 @@ void ChatServer::run()
     int nfds = select(this->max_fd + 1, &this->fds, NULL, NULL, NULL);
     if (nfds <= 0)
     {
-      // std::cout << "select error" << std::endl;
       continue;
     }
     else
@@ -178,9 +184,9 @@ void ChatServer::handleClientExit(int client_fd)
   this->client_addrs.erase(client_fd);
   FD_CLR(client_fd, &this->fds);
   close(client_fd);
-  // std::set<int> group(this->client_fds.begin(), this->client_fds.end());
-  // std::string message = this->getClientName(client_fd) + "退出聊天室";
-  // this->broadcastMessage(babble::BabbleProtocol::EXIT, message, group);
+  std::set<int> group(this->client_fds.begin(), this->client_fds.end());
+  std::string message = this->getClientName(client_fd) + "退出聊天室";
+  this->broadcastMessage(babble::BabbleProtocol::EXIT, message, group);
 }
 
 void ChatServer::sendMessage(int client_fd, babble::BabbleProtocol code, std::string message)
