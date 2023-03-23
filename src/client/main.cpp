@@ -7,16 +7,17 @@ using json = nlohmann::json;
 json Config;
 ChatClient Client;
 
-void stopClient(int p)
+void handleCtrlC(int p)
 {
+  Client.sendMessage("#exit", -1);
   Client.disconnect();
   std::cout << "client stop!" << std::endl;
-  exit(0);
+  exit(p);
 }
 
 int main()
 {
-  signal(SIGINT, stopClient);
+  signal(SIGINT, handleCtrlC);
   Config = babble::loadConfig("./config.json");
   Client.setHost(Config["client"]["host"]);
   Client.setPort(Config["client"]["port"]);

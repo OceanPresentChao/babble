@@ -53,9 +53,15 @@ int ChatClient::disconnect()
   return 0;
 }
 
-int ChatClient::sendMessage(std::string message)
+int ChatClient::sendMessage(std::string message, int to)
 {
-  babble::sendMessage(this->ct_socket, babble::BabbleProtocol::MESSAGE, 200, message);
+  babble::BabbleMessage msg;
+  msg.message = message;
+  msg.type = babble::BabbleType::BROAD;
+  msg.code = babble::BabbleProtocol::MESSAGE;
+  msg.to = to;
+  msg.from = this->ct_socket;
+  babble::sendMessage(this->ct_socket, msg);
   return message.size();
 }
 
@@ -63,24 +69,25 @@ void ChatClient::receiveMessage(int client_fd)
 {
   while (true)
   {
-    char recvMsg[BUFFSIZE];
-    bzero(recvMsg, sizeof(recvMsg));
-    int num_recv = recv(client_fd, recvMsg, BUFFSIZE, 0);
-    if (-1 == num_recv || 0 == num_recv)
+    std::string message = "";
+    int num_recv = babble::recvMessage(client_fd, message);
+    if (num_recv <= 0)
     {
-      std::cout << "Client: No message received" << std::endl;
+      std::cout << "Tip: No Message Received!" << std::endl;
       break;
     }
     std::cout << "num_recv: " << num_recv << std::endl;
-    std::cout << "msg_recv: " << recvMsg << std::endl;
+    std::cout << "msg_recv: " << std::endl;
+    std::cout << message << std::endl;
   }
 }
 
 void ChatClient::run()
 {
   std::cout << "client run" << std::endl;
-  std::thread recv_thread(ChatClient::receiveMessage, this->ct_socket);
-  recv_thread.detach();
+  std::thread t1(ChatClient::receiveMessage, this->ct_socket);
+  this->recv_thread = std::move(t1);
+  this->recv_thread.detach();
   while (true)
   {
     char buff[BUFFSIZE];
@@ -88,13 +95,13 @@ void ChatClient::run()
     printf("Please input: ");
     scanf("%s", buff);
     std::string message(buff);
-    this->sendMessage(message);
-    if (message == "exit")
+    this->sendMessage(message, -1);
+    if (message == "#exit")
     {
       std::cout << "client exit" << std::endl;
       break;
     }
   }
   this->disconnect();
-  exit(0);
+  return;
 }

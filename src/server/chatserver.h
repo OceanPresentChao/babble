@@ -39,8 +39,9 @@ public:
 private:
   void handleNewConnection();
   void handleNewMessage(int client_fd);
-  void broadcastMessage(babble::BabbleProtocol type, int code, std::string message, const std::set<int> &group);
-  inline void sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message);
+  void handleClientExit(int client_fd);
+  void broadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group);
+  void sendMessage(int client_fd, babble::BabbleProtocol code, std::string message);
   int getOnlineCount();
   std::string getClientName(int client_fd);
 };

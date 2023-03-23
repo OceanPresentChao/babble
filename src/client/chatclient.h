@@ -20,6 +20,7 @@ public:
 private:
   int port;
   std::string host;
+  std::thread recv_thread;
 
 public:
   ChatClient();
@@ -30,6 +31,6 @@ public:
   void run();
   int connectServer();
   int disconnect();
-  int sendMessage(std::string);
+  int sendMessage(std::string, int to);
   static void receiveMessage(int client_socket);
 };

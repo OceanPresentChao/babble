@@ -17,14 +17,21 @@ namespace babble
     LOGIN = 0,
     LOGOUT = 1,
     JOIN = 2,
-    LEAVE_SESS = 3,
+    EXIT = 3,
     NEW_SESS = 4,
     MESSAGE = 5,
     QUERY = 6,
     INVALID = 7
   };
 
-  const int BabblePkgWidth = sizeof(int);
+  enum BabbleType
+  {
+    BROAD = -1,
+    ONE = -2,
+    SERVER = -3,
+  };
+
+  const unsigned int BabblePkgWidth = sizeof(int);
 
   struct BabblePackage
   {
@@ -32,13 +39,26 @@ namespace babble
     char message[BUFFSIZE];
   };
 
-  std::string formatMessage(enum BabbleProtocol type, int code, std::string message);
+  struct BabbleMessage
+  {
+    BabbleProtocol code;
+    BabbleType type;
+    std::string message;
+    int from;
+    int to;
+  };
+
+  std::string formatMessage(struct BabbleMessage message);
 
   json parseMessage(std::string message);
 
   int recvMessage(int client_fd, std::string &message);
 
-  int sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message);
+  int sendMessage(int client_fd, struct BabbleMessage message);
+
+  int recvN(int client_fd, char *buffer, int length);
+
+  int sendN(int client_fd, char *buffer, int length);
 
   json loadConfig(std::string configfile);
 
