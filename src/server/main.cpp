@@ -12,7 +12,7 @@ void stopServer(int p)
 {
   Server.stop();
   std::cout << "server stop!" << std::endl;
-  exit(0);
+  exit(p);
 }
 
 int main()

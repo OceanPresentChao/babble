@@ -62,8 +62,9 @@ void ChatServer::run()
     FD_SET(this->sv_socket, &this->fds); // 把要检测的套接字server_sock_fd加入到集合中
     this->max_fd = std::max(this->max_fd, this->sv_socket);
 
-    for (int fd : this->client_fds)
+    for (auto it = this->client_fds.begin(); it != this->client_fds.end(); it++)
     {
+      int fd = *it;
       if (fd != 0)
       {
         this->max_fd = std::max(this->max_fd, fd);
@@ -71,9 +72,9 @@ void ChatServer::run()
       }
     }
     int nfds = select(this->max_fd + 1, &this->fds, NULL, NULL, NULL);
-    if (nfds < 0)
+    if (nfds <= 0)
     {
-      std::cout << "select error" << std::endl;
+      // std::cout << "select error" << std::endl;
       continue;
     }
     else
@@ -82,10 +83,11 @@ void ChatServer::run()
       {
         this->handleNewConnection();
       }
-
-      for (int fd : this->client_fds)
+      // 单独copy一份set是因为在handleNewMessage中可能会进入handleClientExit修改client_fds
+      std::set<int> tmp(this->client_fds.begin(), this->client_fds.end());
+      for (int fd : tmp)
       {
-        if (fd && FD_ISSET(fd, &this->fds))
+        if (this->client_fds.count(fd) && fd && FD_ISSET(fd, &this->fds))
         {
           this->handleNewMessage(fd);
         }
@@ -116,11 +118,17 @@ void ChatServer::handleNewConnection()
   }
   if (ct_socket > 0)
   {
+    if (this->client_fds.count(ct_socket))
+    {
+      return;
+    }
     if (this->client_fds.size() < this->max_connection)
     {
       // inet_ntoa:接受一个in_addr结构体类型的参数并返回一个以点分十进制格式表示的IP地址字符串
       this->client_fds.insert(ct_socket);
       this->client_addrs[ct_socket] = client_address;
+      FD_SET(ct_socket, &this->fds);
+      this->max_fd = std::max(this->max_fd, ct_socket);
 
       std::set<int> group(this->client_fds.begin(), this->client_fds.end());
       group.erase(ct_socket);
