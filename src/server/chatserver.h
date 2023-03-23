@@ -1,4 +1,5 @@
 #include <cstring>
+#include <string>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -7,8 +8,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
-#include <vector>
+#include <set>
 #include <cmath>
+#include <map>
 #include "chatroom.h"
 
 class ChatServer
@@ -22,8 +24,8 @@ private:
   int max_connection;
   int max_fd;
   fd_set fds;
-  std::vector<int> client_fds;
-  std::vector<struct sockaddr_in> client_addrs;
+  std::set<int> client_fds;
+  std::map<int, struct sockaddr_in> client_addrs;
 
 public:
   ChatServer();
@@ -31,10 +33,14 @@ public:
   void init();
   void setPort(int port);
   int listenClient();
-  void handleNewConnection();
-  void handleNewMessage(int client_fd);
-  void sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message);
-  // void broadCast(babble::BabbleProtocol type, int code, std::string message);
   void run();
   int stop();
+
+private:
+  void handleNewConnection();
+  void handleNewMessage(int client_fd);
+  void broadcastMessage(babble::BabbleProtocol type, int code, std::string message, const std::set<int> &group);
+  inline void sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message);
+  int getOnlineCount();
+  std::string getClientName(int client_fd);
 };

@@ -6,8 +6,6 @@ ChatServer::ChatServer() : max_connection(10)
 {
   this->max_fd = 0;
   FD_ZERO(&this->fds);
-  this->client_fds.resize(this->max_connection + 1, 0);
-  this->client_addrs.resize(this->max_connection + 1);
 }
 
 ChatServer::~ChatServer()
@@ -64,12 +62,12 @@ void ChatServer::run()
     FD_SET(this->sv_socket, &this->fds); // 把要检测的套接字server_sock_fd加入到集合中
     this->max_fd = std::max(this->max_fd, this->sv_socket);
 
-    for (int i = 1; i <= this->max_connection; i++)
+    for (int fd : this->client_fds)
     {
-      if (this->client_fds[i] != 0)
+      if (fd != 0)
       {
-        this->max_fd = std::max(this->max_fd, client_fds[i]);
-        FD_SET(this->client_fds[i], &this->fds);
+        this->max_fd = std::max(this->max_fd, fd);
+        FD_SET(fd, &this->fds);
       }
     }
     int nfds = select(this->max_fd + 1, &this->fds, NULL, NULL, NULL);
@@ -85,11 +83,11 @@ void ChatServer::run()
         this->handleNewConnection();
       }
 
-      for (int i = 1; i <= this->max_connection; i++)
+      for (int fd : this->client_fds)
       {
-        if (client_fds[i] && FD_ISSET(this->client_fds[i], &this->fds))
+        if (fd && FD_ISSET(fd, &this->fds))
         {
-          this->handleNewMessage(this->client_fds[i]);
+          this->handleNewMessage(fd);
         }
       }
     }
@@ -107,7 +105,6 @@ int ChatServer::stop()
 
 void ChatServer::handleNewConnection()
 {
-  std::cout << "handleNewConnection" << std::endl;
   struct sockaddr_in client_address;
   socklen_t address_len = sizeof(struct sockaddr_in);
   char buff[BUFFSIZE];
@@ -119,27 +116,23 @@ void ChatServer::handleNewConnection()
   }
   if (ct_socket > 0)
   {
-    int index = -1;
-    for (int i = 1; i <= this->max_connection; i++)
+    if (this->client_fds.size() < this->max_connection)
     {
-      if (this->client_fds[i] == 0)
-      {
-        index = i;
-        this->client_fds[i] = ct_socket;
-        break;
-      }
-    }
-    if (index >= 0)
-    {
-      printf("新客户端(%d)加入成功 %s:%d \n", index, inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
       // inet_ntoa:接受一个in_addr结构体类型的参数并返回一个以点分十进制格式表示的IP地址字符串
-      this->client_addrs[index] = client_address;
+      this->client_fds.insert(ct_socket);
+      this->client_addrs[ct_socket] = client_address;
+
+      std::set<int> group(this->client_fds.begin(), this->client_fds.end());
+      group.erase(ct_socket);
+      std::string message = this->getClientName(ct_socket) + "加入聊天室";
+      this->broadcastMessage(babble::BabbleProtocol::JOIN, 200, message, group);
+
+      message = "欢迎加入聊天室，当前在线人数：" + std::to_string(this->getOnlineCount()) + "\n";
+      this->sendMessage(ct_socket, babble::BabbleProtocol::MESSAGE, 200, message);
     }
     else
     {
-      memset(buff, 0, sizeof(buff));
-      strcpy(buff, "服务器加入的客户端数达到最大值!\n");
-      send(ct_socket, buff, BUFFSIZE, 0);
+      this->sendMessage(ct_socket, babble::BabbleProtocol::INVALID, 300, "服务器加入的客户端数达到最大值!\n");
       printf("客户端连接数达到最大值，新客户端加入失败 %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
     }
   }
@@ -160,22 +153,39 @@ void ChatServer::handleNewMessage(int client_fd)
     // 若向已关闭的socket发送消息，内核会向进程发送一个SIGPIPE信号，进程默认行为是终止进程
     std::cout << "Client disconnected" << std::endl;
     FD_CLR(client_fd, &this->fds);
-    for (int i = 1; i <= this->max_connection; i++)
-    {
-      if (this->client_fds[i] == client_fd)
-      {
-        this->client_fds[i] = 0;
-        break;
-      }
-    }
+    this->client_fds.erase(client_fd);
+    this->client_addrs.erase(client_fd);
     return;
   }
   // 正常接受到消息
   std::cout << "Recv:" << message << std::endl;
-  babble::sendMessage(client_fd, babble::BabbleProtocol::MESSAGE, 200, "Server got your message");
+  std::string bmsg = this->getClientName(client_fd) + "说：\n" + message;
+  std::set<int> group(this->client_fds.begin(), this->client_fds.end());
+  this->broadcastMessage(babble::BabbleProtocol::MESSAGE, 200, bmsg, group);
 }
 
-void ChatServer::sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message)
+inline void ChatServer::sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message)
 {
+  babble::sendMessage(client_fd, type, code, message);
   return;
+}
+
+void ChatServer::broadcastMessage(babble::BabbleProtocol type, int code, std::string message, const std::set<int> &group)
+{
+  for (int fd : group)
+  {
+    this->sendMessage(fd, type, code, message);
+  }
+}
+
+int ChatServer::getOnlineCount()
+{
+  return this->client_fds.size() - std::count(this->client_fds.begin(), this->client_fds.end(), 0);
+}
+
+std::string ChatServer::getClientName(int client_fd)
+{
+  struct sockaddr_in &client_address = this->client_addrs[client_fd];
+  std::string name = "客户端" + std::string(inet_ntoa(client_address.sin_addr)) + std::to_string(ntohs(client_address.sin_port));
+  return name;
 }
