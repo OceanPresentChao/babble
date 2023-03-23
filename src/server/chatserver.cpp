@@ -89,15 +89,9 @@ void ChatServer::run()
       {
         if (client_fds[i] && FD_ISSET(this->client_fds[i], &this->fds))
         {
-          this->handleRecvMessage(this->client_fds[i]);
+          this->handleNewMessage(this->client_fds[i]);
         }
       }
-    }
-
-    if (this->ct_socket == -1)
-    {
-      perror("Accept failed");
-      exit(1);
     }
   }
 
@@ -117,8 +111,13 @@ void ChatServer::handleNewConnection()
   struct sockaddr_in client_address;
   socklen_t address_len = sizeof(struct sockaddr_in);
   char buff[BUFFSIZE];
-  this->ct_socket = accept(this->sv_socket, (struct sockaddr *)&client_address, &address_len);
-  if (this->ct_socket > 0)
+  int ct_socket = accept(this->sv_socket, (struct sockaddr *)&client_address, &address_len);
+  if (ct_socket == -1)
+  {
+    perror("Accept failed");
+    exit(1);
+  }
+  if (ct_socket > 0)
   {
     int index = -1;
     for (int i = 1; i <= this->max_connection; i++)
@@ -126,7 +125,7 @@ void ChatServer::handleNewConnection()
       if (this->client_fds[i] == 0)
       {
         index = i;
-        this->client_fds[i] = this->ct_socket;
+        this->client_fds[i] = ct_socket;
         break;
       }
     }
@@ -135,25 +134,21 @@ void ChatServer::handleNewConnection()
       printf("新客户端(%d)加入成功 %s:%d \n", index, inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
       // inet_ntoa:接受一个in_addr结构体类型的参数并返回一个以点分十进制格式表示的IP地址字符串
       this->client_addrs[index] = client_address;
-      // sendIP(index);
     }
     else
     {
       memset(buff, 0, sizeof(buff));
       strcpy(buff, "服务器加入的客户端数达到最大值!\n");
-      send(this->ct_socket, buff, BUFFSIZE, 0);
+      send(ct_socket, buff, BUFFSIZE, 0);
       printf("客户端连接数达到最大值，新客户端加入失败 %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
     }
   }
 }
 
-void ChatServer::handleRecvMessage(int client_fd)
+void ChatServer::handleNewMessage(int client_fd)
 {
-  char buff[BUFFSIZE];
-  bzero(buff, BUFFSIZE);
-  // 对应伪代码中的recv(connfd, buff);
-  int num_recv = recv(client_fd, buff, BUFFSIZE, 0);
-  // recv()返回值为0表示对方关闭了连接，返回值为-1表示出错
+  std::string message = "";
+  int num_recv = babble::recvMessage(client_fd, message);
   if (num_recv < 0)
   {
     perror("Recv failed");
@@ -176,7 +171,11 @@ void ChatServer::handleRecvMessage(int client_fd)
     return;
   }
   // 正常接受到消息
-  printf("Recv: %s\n", buff);
-  memcpy(buff, "Hello, I have received your message.", BUFFSIZE);
-  send(this->ct_socket, buff, BUFFSIZE, 0);
+  std::cout << "Recv:" << message << std::endl;
+  babble::sendMessage(client_fd, babble::BabbleProtocol::MESSAGE, 200, "Server got your message");
+}
+
+void ChatServer::sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message)
+{
+  return;
 }

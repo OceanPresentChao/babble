@@ -53,14 +53,10 @@ int ChatClient::disconnect()
   return 0;
 }
 
-std::string ChatClient::sendMessage()
+int ChatClient::sendMessage(std::string message)
 {
-  char buff[BUFFSIZE];
-  bzero(buff, sizeof(buff));
-  printf("Please input: ");
-  scanf("%s", buff);
-  send(this->ct_socket, buff, strlen(buff), 0);
-  return std::string(buff);
+  babble::sendMessage(this->ct_socket, babble::BabbleProtocol::MESSAGE, 200, message);
+  return message.size();
 }
 
 void ChatClient::receiveMessage(int client_fd)
@@ -87,7 +83,13 @@ void ChatClient::run()
   recv_thread.detach();
   while (true)
   {
-    if (this->sendMessage() == "exit")
+    char buff[BUFFSIZE];
+    bzero(buff, sizeof(buff));
+    printf("Please input: ");
+    scanf("%s", buff);
+    std::string message(buff);
+    this->sendMessage(message);
+    if (message == "exit")
     {
       std::cout << "client exit" << std::endl;
       break;

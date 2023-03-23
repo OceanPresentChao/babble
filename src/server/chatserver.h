@@ -1,5 +1,4 @@
 #include <cstring>
-#include <cstdlib>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -10,11 +9,11 @@
 #include <signal.h>
 #include <vector>
 #include <cmath>
+#include "chatroom.h"
 
 class ChatServer
 {
 public:
-  int ct_socket;
   int sv_socket;
   int port;
   struct sockaddr_in server_address;
@@ -33,7 +32,9 @@ public:
   void setPort(int port);
   int listenClient();
   void handleNewConnection();
-  void handleRecvMessage(int client_fd);
+  void handleNewMessage(int client_fd);
+  void sendMessage(int client_fd, babble::BabbleProtocol type, int code, std::string message);
+  // void broadCast(babble::BabbleProtocol type, int code, std::string message);
   void run();
   int stop();
 };

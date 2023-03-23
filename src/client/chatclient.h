@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <thread>
+#include "chatroom.h"
 
 class ChatClient
 {
@@ -26,9 +27,9 @@ public:
   void setHost(std::string host);
   void setPort(int port);
   void init();
-  int connectServer();
-  std::string sendMessage();
-  int disconnect();
   void run();
+  int connectServer();
+  int disconnect();
+  int sendMessage(std::string);
   static void receiveMessage(int client_socket);
 };

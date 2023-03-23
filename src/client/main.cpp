@@ -2,6 +2,7 @@
 #include <iostream>
 #include "chatclient.h"
 #include "../common/chatroom.h"
+using json = nlohmann::json;
 
 json Config;
 ChatClient Client;
@@ -16,7 +17,7 @@ void stopClient(int p)
 int main()
 {
   signal(SIGINT, stopClient);
-  Config = loadConfig("./config.json");
+  Config = babble::loadConfig("./config.json");
   Client.setHost(Config["client"]["host"]);
   Client.setPort(Config["client"]["port"]);
   Client.init();
