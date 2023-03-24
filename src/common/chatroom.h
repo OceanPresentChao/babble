@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CHATROOM_H
+#define CHATROOM_H
 #include <fstream>
 #include "json.hpp"
 #include <string>
@@ -63,3 +64,5 @@ namespace babble
   json loadConfig(std::string configfile);
 
 } // namespace babble
+
+#endif
