@@ -37,15 +37,17 @@ int ChatServer::listenClient()
   }
   // 获取文件标识符
   int flags = fcntl(this->sv_socket, F_GETFL, 0);
-  if (flags < 0) {
+  if (flags < 0)
+  {
     perror("fcntl failed");
     return -1;
   }
-  //设置非阻塞标志：在获取标志后，将 O_NONBLOCK 标志设置到 flags 中
+  // 设置非阻塞标志：在获取标志后，将 O_NONBLOCK 标志设置到 flags 中
   flags |= O_NONBLOCK;
-  //更新文件描述符的标志：使用 fcntl 函数更新文件描述符的标志。
+  // 更新文件描述符的标志：使用 fcntl 函数更新文件描述符的标志。
   int ret = fcntl(this->sv_socket, F_SETFL, flags);
-  if (ret < 0) {
+  if (ret < 0)
+  {
     perror("fcntl failed");
     return -1;
   }
@@ -168,12 +170,12 @@ void ChatServer::handleNewMessage(int client_fd)
     this->handleClientExit(client_fd);
     return;
   }
-  // 正常接受到消息
   std::cout << "Recv:" << rawMsg << std::endl;
 
-  json message = babble::parseMessage(rawMsg);
-  babble::BabbleProtocol code = (babble::BabbleProtocol)message["code"].get<int>();
-  std::string msg = message["message"].get<std::string>();
+  json pkg = babble::parseMessage(rawMsg);
+  babble::BabbleProtocol code = (babble::BabbleProtocol)pkg["code"].get<int>();
+  babble::BabbleType type = (babble::BabbleType)pkg["type"].get<int>();
+  std::string msg = pkg["message"].get<std::string>();
 
   // 收到客户端加入群聊消息
   if (code == babble::BabbleProtocol::JOIN)
@@ -191,12 +193,57 @@ void ChatServer::handleNewMessage(int client_fd)
   {
     this->handleClientExit(client_fd);
   }
-  // 收到客户端正常消息
-  else
+  // 查询当前在线人数
+  else if (code == babble::BabbleProtocol::QUERY)
   {
-    std::string bmsg = this->getClientName(client_fd) + "说：\n" + msg;
+    std::string message = "当前在线人数：" + std::to_string(this->getOnlineCount()) + "\n";
+    for (int fd : this->client_fds)
+    {
+      if (fd != 0)
+      {
+        message += this->getClientName(fd) + "\n";
+      }
+    }
+    this->sendPrivateMessage(client_fd, babble::BabbleProtocol::MESSAGE, message);
+  }
+  // 接受客户端建立私聊会话请求
+  else if (code == babble::BabbleProtocol::NEW_SESS)
+  {
+    int to = pkg["to"].get<int>();
+    if (!this->client_fds.count(to))
+    {
+      std::string message = "用户不存在";
+      this->sendPrivateMessage(client_fd, babble::BabbleProtocol::INVALID, message);
+    }
+    else
+    {
+      std::string message = "建立会话成功";
+      this->sendPrivateMessage(client_fd, babble::BabbleProtocol::NEW_SESS, message);
+    }
+  }
+  else if (code == babble::BabbleProtocol::NEW_SESS)
+  {
+  }
+  // 收到客户端群发消息
+  else if (code == babble::BabbleProtocol::MESSAGE && type == babble::BabbleType::BROAD)
+  {
+    std::string message = this->getClientName(client_fd) + "说：\n" + msg;
     std::set<int> group(this->client_fds.begin(), this->client_fds.end());
-    this->sendBroadcastMessage(babble::BabbleProtocol::MESSAGE, bmsg, group);
+    this->sendBroadcastMessage(babble::BabbleProtocol::MESSAGE, message, group);
+  }
+  // 收到客户端私发消息
+  else if (code == babble::BabbleProtocol::MESSAGE && type == babble::BabbleType::PRIVATE)
+  {
+    std::string message = "(私聊)" + this->getClientName(client_fd) + "说：\n" + msg;
+    int to = pkg["to"].get<int>();
+    if (this->client_fds.count(to))
+    {
+      this->sendPrivateMessage(to, babble::BabbleProtocol::MESSAGE, message);
+    }
+    else
+    {
+      this->sendPrivateMessage(client_fd, babble::BabbleProtocol::INVALID, "用户不存在\n");
+    }
   }
 }
 
@@ -249,6 +296,20 @@ int ChatServer::getOnlineCount()
 std::string ChatServer::getClientName(int client_fd)
 {
   struct sockaddr_in &client_address = this->client_addrs[client_fd];
-  std::string name = "客户端" + std::string(inet_ntoa(client_address.sin_addr)) + std::to_string(ntohs(client_address.sin_port));
+  std::string name = "客户端" + std::string(inet_ntoa(client_address.sin_addr)) + std::to_string(ntohs(client_address.sin_port)) + " fd:" + std::to_string(client_fd);
   return name;
+}
+
+json ChatServer::getOnlineList()
+{
+  json arr;
+  for (int fd : this->client_fds)
+  {
+    std::string name = this->getClientName(fd);
+    json obj;
+    obj["socket"] = fd;
+    obj["name"] = name;
+    arr.push_back(obj);
+  }
+  return arr;
 }

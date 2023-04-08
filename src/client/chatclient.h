@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/errno.h>
-#include <sys/fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
@@ -45,7 +44,7 @@ public:
   int connectServer();
   int disconnect();
   void handleGroupChat();
-  void handlePrivateChat();
+  void handlePrivateChat(int);
   static void handleReceiveChat(void *client);
 
   // static void receiveMessage(void *client);

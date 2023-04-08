@@ -14,6 +14,7 @@
 #include <set>
 #include <cmath>
 #include <map>
+#include <vector>
 #include "chatroom.h"
 
 class ChatServer
@@ -47,6 +48,7 @@ private:
   void handleNewMessage(int client_fd);
   void handleClientExit(int client_fd);
   int getOnlineCount();
+  json getOnlineList();
   std::string getClientName(int client_fd);
 };
 #endif

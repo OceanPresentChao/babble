@@ -43,23 +43,6 @@ int ChatClient::connectServer()
     return -1;
   }
 
-  // 获取文件标识符
-  int flags = fcntl(this->ct_socket, F_GETFL, 0);
-  if (flags < 0)
-  {
-    perror("fcntl failed");
-    return -1;
-  }
-  // 设置非阻塞标志：在获取标志后，将 O_NONBLOCK 标志设置到 flags 中
-  flags |= O_NONBLOCK;
-  // 更新文件描述符的标志：使用 fcntl 函数更新文件描述符的标志。
-  int ret = fcntl(this->ct_socket, F_SETFL, flags);
-  if (ret < 0)
-  {
-    perror("fcntl failed");
-    return -1;
-  }
-
   if (connect(this->ct_socket, (struct sockaddr *)&this->server_address, sizeof(this->server_address)) == -1)
   {
     printf("Connect error(%d): %s\n", errno, strerror(errno));
@@ -139,7 +122,43 @@ void ChatClient::run()
     }
     case '2':
     {
+      babble::BabbleMessage msg(babble::BabbleProtocol::QUERY, babble::BabbleType::SERVER);
+      this->sendMessage(msg);
+      json recvMsg = this->receiveMessage();
+      std::cout << recvMsg["message"].get<std::string>() << std::endl;
 
+      msg.code = babble::BabbleProtocol::NEW_SESS;
+
+      std::cout << "请输入私聊用户端口号:";
+      buff.clear();
+      std::cin >> buff;
+      if (buff == "#exit")
+      {
+        break;
+      }
+      try
+      {
+        msg.to = std::stoi(buff);
+        msg.from = this->ct_socket;
+      }
+      catch (std::invalid_argument &)
+      {
+        std::cout << "非法序号！" << std::endl;
+        break;
+      }
+      msg.message = buff;
+
+      this->sendMessage(msg);
+      recvMsg = this->receiveMessage();
+      if (recvMsg["code"].get<int>() == babble::BabbleProtocol::INVALID)
+      {
+        std::cout << "Invalid:" << recvMsg["message"].get<std::string>() << std::endl;
+      }
+      else
+      {
+        std::cout << recvMsg["message"].get<std::string>() << std::endl;
+        this->handlePrivateChat(msg.to);
+      }
       break;
     }
     case '3':
@@ -194,6 +213,30 @@ void ChatClient::handleGroupChat()
   this->status = ClientStatus::IDLE;
 }
 
-void ChatClient::handlePrivateChat()
+void ChatClient::handlePrivateChat(int to)
 {
+  babble::BabbleMessage msg(babble::BabbleProtocol::MESSAGE, babble::BabbleType::PRIVATE);
+  std::string raw = "";
+
+  this->status = ClientStatus::CHATTING;
+  std::thread t1(ChatClient::handleReceiveChat, (void *)this);
+  this->recv_thread = std::move(t1);
+  this->recv_thread.detach();
+
+  while (this->isRunning && this->status == ClientStatus::CHATTING)
+  {
+    std::cout << "请输入：" << std::endl;
+    raw.clear();
+    std::cin >> raw;
+    msg.message = raw;
+    msg.to = to;
+    if (raw == "#exit")
+    {
+      msg.code = babble::BabbleProtocol::LOGOUT;
+      msg.type = babble::BabbleType::SERVER;
+      break;
+    }
+    this->sendMessage(msg);
+  }
+  this->status = ClientStatus::IDLE;
 }
