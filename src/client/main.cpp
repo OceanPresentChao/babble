@@ -9,7 +9,6 @@ ChatClient Client;
 
 void handleCtrlC(int p)
 {
-  Client.sendMessage("#exit", -1);
   Client.disconnect();
   std::cout << "client stop!" << std::endl;
   exit(p);

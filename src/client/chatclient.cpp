@@ -1,9 +1,12 @@
 #include "ChatClient.h"
 #include "../common/chatroom.h"
 #include <iostream>
+#include <stdexcept>
 
 ChatClient::ChatClient()
 {
+  this->isRunning = false;
+  this->status = ClientStatus::IDLE;
 }
 
 ChatClient::~ChatClient()
@@ -53,56 +56,126 @@ int ChatClient::disconnect()
   return 0;
 }
 
-int ChatClient::sendMessage(std::string message, int to)
+json ChatClient::receiveMessage()
 {
-  babble::BabbleMessage msg;
-  msg.message = message;
-  msg.type = babble::BabbleType::BROAD;
-  msg.code = babble::BabbleProtocol::MESSAGE;
-  msg.to = to;
-  msg.from = this->ct_socket;
-  babble::sendMessage(this->ct_socket, msg);
-  return message.size();
+  std::string recvMsg;
+  int num_recv = babble::recvMessage(this->ct_socket, recvMsg);
+  if (num_recv <= 0)
+  {
+    std::cout << "Tip: No Message Received!" << std::endl;
+  }
+  return babble::parseMessage(recvMsg);
 }
 
-void ChatClient::receiveMessage(void *client)
+int ChatClient::sendMessage(babble::BabbleMessage message)
 {
-  ChatClient *chatClient = (ChatClient *)client;
-  while (true)
-  {
-    std::string rawMsg = "";
-    int num_recv = babble::recvMessage(chatClient->ct_socket, rawMsg);
-    if (num_recv <= 0)
-    {
-      std::cout << "Tip: No Message Received!" << std::endl;
-      break;
-    }
-    json j = json::parse(rawMsg);
-    std::string message = j["message"].get<std::string>();
-    std::cout << message << std::endl;
-  }
+  return babble::sendMessage(this->ct_socket, message);
 }
 
 void ChatClient::run()
 {
   std::cout << "client run" << std::endl;
-  std::thread t1(ChatClient::receiveMessage, (void *)this);
-  this->recv_thread = std::move(t1);
-  this->recv_thread.detach();
-  while (true)
+  this->isRunning = true;
+  while (this->isRunning)
   {
-    char buff[BUFFSIZE];
-    bzero(buff, sizeof(buff));
-    printf("Please input: ");
-    scanf("%s", buff);
-    std::string message(buff);
-    this->sendMessage(message, -1);
-    if (message == "#exit")
+    system("clear");
+    std::cout << "1.进入全局聊天" << std::endl;
+    std::cout << "2.开始私聊" << std::endl;
+    std::cout << "3.退出" << std::endl;
+    std::string buff;
+    buff.clear();
+    std::cin >> buff;
+    switch (buff[0])
     {
-      std::cout << "client exit" << std::endl;
+    case '1':
+    {
+      babble::BabbleMessage msg(babble::BabbleProtocol::JOIN, babble::BabbleType::SERVER);
+      std::cout << "请输入聊天室序号:";
+      buff.clear();
+      std::cin >> buff;
+      if (buff == "#exit")
+      {
+        break;
+      }
+      try
+      {
+        std::stoi(buff);
+      }
+      catch (std::invalid_argument &)
+      {
+        std::cout << "非法序号！" << std::endl;
+        break;
+      }
+      msg.message = buff;
+      this->sendMessage(msg);
+      json recvMsg = this->receiveMessage();
+      if (recvMsg["code"].get<int>() == babble::BabbleProtocol::INVALID)
+      {
+        std::cout << "Invalid:" << recvMsg["message"].get<std::string>() << std::endl;
+      }
+      else
+      {
+        this->handleGroupChat();
+      }
+      break;
+    }
+    case '2':
+    {
+
+      break;
+    }
+    case '3':
+    {
+      this->isRunning = false;
+      break;
+    }
+
+    default:
       break;
     }
   }
   this->disconnect();
   return;
+}
+
+void ChatClient::handleReceiveChat(void *client)
+{
+  ChatClient *chatClient = (ChatClient *)client;
+  while (chatClient->isRunning)
+  {
+    json j = chatClient->receiveMessage();
+    std::string message = j["message"].get<std::string>();
+    std::cout << message << std::endl;
+  }
+}
+
+void ChatClient::handleGroupChat()
+{
+  babble::BabbleMessage msg(babble::BabbleProtocol::MESSAGE, babble::BabbleType::BROAD);
+  std::string raw = "";
+
+  this->status = ClientStatus::CHATTING;
+  std::thread t1(ChatClient::handleReceiveChat, (void *)this);
+  this->recv_thread = std::move(t1);
+  this->recv_thread.detach();
+
+  while (this->isRunning && this->status == ClientStatus::CHATTING)
+  {
+    std::cout << "请输入：" << std::endl;
+    raw.clear();
+    std::cin >> raw;
+    msg.message = raw;
+    if (raw == "#exit")
+    {
+      msg.code = babble::BabbleProtocol::LOGOUT;
+      msg.type = babble::BabbleType::SERVER;
+      break;
+    }
+    this->sendMessage(msg);
+  }
+  this->status = ClientStatus::IDLE;
+}
+
+void ChatClient::handlePrivateChat()
+{
 }

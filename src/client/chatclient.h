@@ -1,3 +1,5 @@
+#ifndef CHAT_CLIENT_H
+#define CHAT_CLIENT_H
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -11,6 +13,12 @@
 #include <thread>
 #include "chatroom.h"
 
+enum ClientStatus
+{
+  IDLE = 0,
+  CHATTING = 1,
+};
+
 class ChatClient
 {
 public:
@@ -19,8 +27,12 @@ public:
 
 private:
   int port;
+  bool isRunning;
+  ClientStatus status;
   std::string host;
   std::thread recv_thread;
+  json receiveMessage();
+  int sendMessage(babble::BabbleMessage);
 
 public:
   ChatClient();
@@ -31,6 +43,10 @@ public:
   void run();
   int connectServer();
   int disconnect();
-  int sendMessage(std::string, int to);
-  static void receiveMessage(void *client);
+  void handleGroupChat();
+  void handlePrivateChat();
+  static void handleReceiveChat(void *client);
+
+  // static void receiveMessage(void *client);
 };
+#endif

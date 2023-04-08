@@ -28,7 +28,7 @@ namespace babble
   enum BabbleType
   {
     BROAD = -1,
-    ONE = -2,
+    PRIVATE = -2,
     SERVER = -3,
   };
 
@@ -47,6 +47,15 @@ namespace babble
     std::string message;
     int from;
     int to;
+    BabbleMessage() : code(BabbleProtocol::INVALID), type(BabbleType::SERVER), from(0), to(0)
+    {
+    }
+    BabbleMessage(BabbleProtocol code, BabbleType type) : from(0), to(0)
+    {
+      this->code = code;
+      this->type = type;
+      this->message = "";
+    }
   };
 
   std::string formatMessage(struct BabbleMessage message);

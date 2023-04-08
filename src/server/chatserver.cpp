@@ -89,13 +89,16 @@ void ChatServer::run()
       {
         this->handleNewConnection();
       }
-      // 单独copy一份set是因为在handleNewMessage中可能会进入handleClientExit修改client_fds
-      std::set<int> tmp(this->client_fds.begin(), this->client_fds.end());
-      for (int fd : tmp)
+      else
       {
-        if (this->client_fds.count(fd) && fd && FD_ISSET(fd, &this->fds))
+        // 单独copy一份set是因为在handleNewMessage中可能会进入handleClientExit修改client_fds
+        std::set<int> tmp(this->client_fds.begin(), this->client_fds.end());
+        for (int fd : tmp)
         {
-          this->handleNewMessage(fd);
+          if (this->client_fds.count(fd) && fd && FD_ISSET(fd, &this->fds))
+          {
+            this->handleNewMessage(fd);
+          }
         }
       }
     }
@@ -136,17 +139,12 @@ void ChatServer::handleNewConnection()
       FD_SET(ct_socket, &this->fds);
       this->max_fd = std::max(this->max_fd, ct_socket);
 
-      std::set<int> group(this->client_fds.begin(), this->client_fds.end());
-      group.erase(ct_socket);
-      std::string message = this->getClientName(ct_socket) + "加入聊天室";
-      this->broadcastMessage(babble::BabbleProtocol::JOIN, message, group);
-
-      message = "欢迎加入聊天室，当前在线人数：" + std::to_string(this->getOnlineCount()) + "\n";
-      this->sendMessage(ct_socket, babble::BabbleProtocol::MESSAGE, message);
+      std::cout << this->getClientName(ct_socket) << "加入服务器" << std::endl;
     }
     else
     {
-      this->sendMessage(ct_socket, babble::BabbleProtocol::INVALID, "服务器加入的客户端数达到最大值!\n");
+      this->sendPrivateMessage(ct_socket, babble::BabbleProtocol::INVALID, "服务器加入的客户端数达到最大值!\n");
+
       printf("客户端连接数达到最大值，新客户端加入失败 %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
     }
   }
@@ -164,44 +162,64 @@ void ChatServer::handleNewMessage(int client_fd)
   }
   // 正常接受到消息
   std::cout << "Recv:" << rawMsg << std::endl;
+
   json message = babble::parseMessage(rawMsg);
+  babble::BabbleProtocol code = (babble::BabbleProtocol)message["code"].get<int>();
   std::string msg = message["message"].get<std::string>();
-  if (msg == "#exit")
+
+  // 收到客户端加入群聊消息
+  if (code == babble::BabbleProtocol::JOIN)
+  {
+    std::set<int> group(this->client_fds.begin(), this->client_fds.end());
+    group.erase(client_fd);
+    std::string message = this->getClientName(client_fd) + "加入聊天室";
+    this->sendBroadcastMessage(babble::BabbleProtocol::JOIN, message, group);
+
+    message = "欢迎加入聊天室，当前在线人数：" + std::to_string(this->getOnlineCount()) + "\n";
+    this->sendPrivateMessage(client_fd, babble::BabbleProtocol::MESSAGE, message);
+  }
+  // 收到客户端断开消息
+  else if (code == babble::BabbleProtocol::LOGOUT || msg == "#exit")
   {
     this->handleClientExit(client_fd);
   }
+  // 收到客户端正常消息
   else
   {
     std::string bmsg = this->getClientName(client_fd) + "说：\n" + msg;
     std::set<int> group(this->client_fds.begin(), this->client_fds.end());
-    this->broadcastMessage(babble::BabbleProtocol::MESSAGE, bmsg, group);
+    this->sendBroadcastMessage(babble::BabbleProtocol::MESSAGE, bmsg, group);
   }
 }
 
 void ChatServer::handleClientExit(int client_fd)
 {
+
+  std::set<int> group(this->client_fds.begin(), this->client_fds.end());
+  std::string message = this->getClientName(client_fd) + "退出聊天室";
+  this->sendBroadcastMessage(babble::BabbleProtocol::EXIT, message, group);
+
   this->client_fds.erase(client_fd);
   this->client_addrs.erase(client_fd);
   FD_CLR(client_fd, &this->fds);
   close(client_fd);
-  std::set<int> group(this->client_fds.begin(), this->client_fds.end());
-  std::string message = this->getClientName(client_fd) + "退出聊天室";
-  this->broadcastMessage(babble::BabbleProtocol::EXIT, message, group);
+
+  std::cout << message << std::endl;
 }
 
-void ChatServer::sendMessage(int client_fd, babble::BabbleProtocol code, std::string message)
+void ChatServer::sendPrivateMessage(int client_fd, babble::BabbleProtocol code, std::string message)
 {
   babble::BabbleMessage msg;
   msg.message = message;
   msg.to = client_fd;
   msg.from = -1;
-  msg.type = babble::BabbleType::ONE;
+  msg.type = babble::BabbleType::PRIVATE;
   msg.code = code;
   babble::sendMessage(client_fd, msg);
   return;
 }
 
-void ChatServer::broadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group)
+void ChatServer::sendBroadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group)
 {
   babble::BabbleMessage msg;
   msg.message = message;

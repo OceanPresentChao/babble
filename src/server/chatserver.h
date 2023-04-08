@@ -1,3 +1,5 @@
+#ifndef CHAT_SERVER_H
+#define CHAT_SERVER_H
 #include <cstring>
 #include <string>
 #include <sys/socket.h>
@@ -37,8 +39,8 @@ public:
   int listenClient();
   void run();
   int stop();
-  void sendMessage(int client_fd, babble::BabbleProtocol code, std::string message);
-  void broadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group);
+  void sendPrivateMessage(int client_fd, babble::BabbleProtocol code, std::string message);
+  void sendBroadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group);
 
 private:
   void handleNewConnection();
@@ -47,3 +49,4 @@ private:
   int getOnlineCount();
   std::string getClientName(int client_fd);
 };
+#endif
