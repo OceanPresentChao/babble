@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 #include <sys/event.h>
-#include <sys/ioctl.h>
+#include <sys/fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>

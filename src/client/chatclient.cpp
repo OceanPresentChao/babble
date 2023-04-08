@@ -42,6 +42,24 @@ int ChatClient::connectServer()
     printf("Create socket error(%d): %s\n", errno, strerror(errno));
     return -1;
   }
+
+  // 获取文件标识符
+  int flags = fcntl(this->ct_socket, F_GETFL, 0);
+  if (flags < 0)
+  {
+    perror("fcntl failed");
+    return -1;
+  }
+  // 设置非阻塞标志：在获取标志后，将 O_NONBLOCK 标志设置到 flags 中
+  flags |= O_NONBLOCK;
+  // 更新文件描述符的标志：使用 fcntl 函数更新文件描述符的标志。
+  int ret = fcntl(this->ct_socket, F_SETFL, flags);
+  if (ret < 0)
+  {
+    perror("fcntl failed");
+    return -1;
+  }
+
   if (connect(this->ct_socket, (struct sockaddr *)&this->server_address, sizeof(this->server_address)) == -1)
   {
     printf("Connect error(%d): %s\n", errno, strerror(errno));
