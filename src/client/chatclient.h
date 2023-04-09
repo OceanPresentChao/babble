@@ -43,7 +43,7 @@ public:
   void run();
   int connectServer();
   int disconnect();
-  void handleGroupChat();
+  void handleGroupChat(int);
   void handlePrivateChat(int);
   static void handleReceiveChat(void *client);
 

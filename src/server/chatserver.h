@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include <algorithm>
 #include <set>
 #include <cmath>
 #include <map>
@@ -28,6 +29,7 @@ private:
   int max_connection;
   std::map<int, struct sockaddr_in> client_addrs;
   std::set<int> client_fds;
+  std::map<int, std::vector<int>> client_groups;
   // io multiplexing
   int max_fd;
   fd_set fds;
@@ -48,6 +50,7 @@ private:
   void handleNewMessage(int client_fd);
   void handleClientExit(int client_fd);
   int getOnlineCount();
+  int getGroupOnlineCount(int group_id);
   json getOnlineList();
   std::string getClientName(int client_fd);
 };

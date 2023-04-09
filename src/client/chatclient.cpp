@@ -94,13 +94,14 @@ void ChatClient::run()
       std::cout << "请输入聊天室序号:";
       buff.clear();
       std::cin >> buff;
+      int group_id = -1;
       if (buff == "#exit")
       {
         break;
       }
       try
       {
-        std::stoi(buff);
+        group_id = std::stoi(buff);
       }
       catch (std::invalid_argument &)
       {
@@ -116,7 +117,7 @@ void ChatClient::run()
       }
       else
       {
-        this->handleGroupChat();
+        this->handleGroupChat(group_id);
       }
       break;
     }
@@ -186,7 +187,7 @@ void ChatClient::handleReceiveChat(void *client)
   }
 }
 
-void ChatClient::handleGroupChat()
+void ChatClient::handleGroupChat(int group_id)
 {
   babble::BabbleMessage msg(babble::BabbleProtocol::MESSAGE, babble::BabbleType::BROAD);
   std::string raw = "";
@@ -196,6 +197,8 @@ void ChatClient::handleGroupChat()
   this->recv_thread = std::move(t1);
   this->recv_thread.detach();
 
+  msg.to = group_id;
+
   while (this->isRunning && this->status == ClientStatus::CHATTING)
   {
     std::cout << "请输入：" << std::endl;
@@ -204,13 +207,12 @@ void ChatClient::handleGroupChat()
     msg.message = raw;
     if (raw == "#exit")
     {
-      msg.code = babble::BabbleProtocol::LOGOUT;
+      msg.code = babble::BabbleProtocol::EXIT;
       msg.type = babble::BabbleType::SERVER;
-      break;
+      this->status = ClientStatus::IDLE;
     }
     this->sendMessage(msg);
   }
-  this->status = ClientStatus::IDLE;
 }
 
 void ChatClient::handlePrivateChat(int to)
@@ -232,11 +234,9 @@ void ChatClient::handlePrivateChat(int to)
     msg.to = to;
     if (raw == "#exit")
     {
-      msg.code = babble::BabbleProtocol::LOGOUT;
-      msg.type = babble::BabbleType::SERVER;
+      this->status = ClientStatus::IDLE;
       break;
     }
     this->sendMessage(msg);
   }
-  this->status = ClientStatus::IDLE;
 }
