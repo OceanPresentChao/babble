@@ -6,3 +6,6 @@ A socket chat room application with C++.
 - socket
 - multi thread
 - io multiplexing (select)
+- private chat
+- group chat
+- json package
