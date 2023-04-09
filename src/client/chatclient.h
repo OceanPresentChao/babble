@@ -11,7 +11,7 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <thread>
-#include "chatroom.h"
+#include "ChatRoom.h"
 
 enum ClientStatus
 {

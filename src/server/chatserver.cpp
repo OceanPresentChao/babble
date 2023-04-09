@@ -1,5 +1,5 @@
 #include "ChatServer.h"
-#include "../common/chatroom.h"
+#include "../common/ChatRoom.h"
 #include <iostream>
 
 ChatServer::ChatServer() : max_connection(10)
@@ -207,6 +207,8 @@ void ChatServer::handleNewMessage(int client_fd)
     std::set<int> group(this->client_groups[group_id].begin(), this->client_groups[group_id].end());
     std::string message = this->getClientName(client_fd) + "离开聊天室";
     this->sendBroadcastMessage(babble::BabbleProtocol::MESSAGE, message, group);
+
+    this->sendPrivateMessage(client_fd, babble::BabbleProtocol::OK, "OK");
   }
   // 查询当前在线人数
   else if (code == babble::BabbleProtocol::QUERY)
@@ -235,8 +237,9 @@ void ChatServer::handleNewMessage(int client_fd)
       this->sendPrivateMessage(client_fd, babble::BabbleProtocol::NEW_SESS, message);
     }
   }
-  else if (code == babble::BabbleProtocol::NEW_SESS)
+  else if (code == babble::BabbleProtocol::CLOSE_SESS)
   {
+    this->sendPrivateMessage(client_fd, babble::BabbleProtocol::OK, "会话已关闭");
   }
   // 收到客户端群发消息
   else if (code == babble::BabbleProtocol::MESSAGE && type == babble::BabbleType::BROAD)

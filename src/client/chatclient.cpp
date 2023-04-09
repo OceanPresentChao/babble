@@ -1,5 +1,5 @@
 #include "ChatClient.h"
-#include "../common/chatroom.h"
+#include "../common/ChatRoom.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -179,11 +179,15 @@ void ChatClient::run()
 void ChatClient::handleReceiveChat(void *client)
 {
   ChatClient *chatClient = (ChatClient *)client;
-  while (chatClient->isRunning)
+  while (chatClient->isRunning && chatClient->status == ClientStatus::CHATTING)
   {
     json j = chatClient->receiveMessage();
     std::string message = j["message"].get<std::string>();
-    std::cout << message << std::endl;
+    babble::BabbleProtocol code = (babble::BabbleProtocol)j["code"].get<int>();
+    if (code == babble::BabbleProtocol::MESSAGE)
+    {
+      std::cout << message << std::endl;
+    }
   }
 }
 
@@ -235,7 +239,8 @@ void ChatClient::handlePrivateChat(int to)
     if (raw == "#exit")
     {
       this->status = ClientStatus::IDLE;
-      break;
+      msg.code = babble::BabbleProtocol::CLOSE_SESS;
+      msg.type = babble::BabbleType::SERVER;
     }
     this->sendMessage(msg);
   }

@@ -1,7 +1,8 @@
 #include <signal.h>
 #include <iostream>
 #include "ChatClient.h"
-#include "../common/chatroom.h"
+#include "../common/ChatRoom.h"
+
 using json = nlohmann::json;
 
 json Config;

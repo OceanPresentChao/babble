@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 #include "ChatServer.h"
-#include "../common/chatroom.h"
+#include "../common/ChatRoom.h"
 using json = nlohmann::json;
 
 json Config;

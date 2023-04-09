@@ -20,9 +20,11 @@ namespace babble
     JOIN = 2,
     EXIT = 3,
     NEW_SESS = 4,
-    MESSAGE = 5,
-    QUERY = 6,
-    INVALID = 7
+    CLOSE_SESS = 5,
+    MESSAGE = 6,
+    QUERY = 7,
+    INVALID = 8,
+    OK = 9
   };
 
   enum BabbleType

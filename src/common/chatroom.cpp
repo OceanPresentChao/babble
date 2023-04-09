@@ -1,4 +1,4 @@
-#include "chatroom.h"
+#include "ChatRoom.h"
 #include <iostream>
 
 std::string babble::formatMessage(struct BabbleMessage message)
