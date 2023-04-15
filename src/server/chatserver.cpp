@@ -188,9 +188,9 @@ void ChatServer::handleNewMessage(int client_fd)
     std::set<int> group(this->client_groups[group_id].begin(), this->client_groups[group_id].end());
     group.erase(client_fd);
     std::string message = this->getClientName(client_fd) + "加入聊天室";
-    this->sendBroadcastMessage(babble::BabbleProtocol::JOIN, message, group);
+    this->sendBroadcastMessage(babble::BabbleProtocol::MESSAGE, message, group);
 
-    message = "欢迎加入聊天室，当前在线人数：" + std::to_string(this->getGroupOnlineCount(group_id)) + "\n";
+    message = "欢迎加入聊天室，当前在线人数：" + std::to_string(this->getGroupOnlineCount(group_id)) + "\n" + "您的名称为 " + this->getClientName(client_fd) + "\n";
     this->sendPrivateMessage(client_fd, babble::BabbleProtocol::MESSAGE, message);
   }
   // 收到客户端断开消息
@@ -207,13 +207,12 @@ void ChatServer::handleNewMessage(int client_fd)
     std::set<int> group(this->client_groups[group_id].begin(), this->client_groups[group_id].end());
     std::string message = this->getClientName(client_fd) + "离开聊天室";
     this->sendBroadcastMessage(babble::BabbleProtocol::MESSAGE, message, group);
-
-    this->sendPrivateMessage(client_fd, babble::BabbleProtocol::OK, "OK");
+    this->sendPrivateMessage(client_fd, babble::BabbleProtocol::OK, "会话已关闭");
   }
   // 查询当前在线人数
   else if (code == babble::BabbleProtocol::QUERY)
   {
-    std::string message = "当前在线人数：" + std::to_string(this->getOnlineCount()) + "\n";
+    std::string message = "您的名称为 " + this->getClientName(client_fd) + "\n" + "当前在线人数：" + std::to_string(this->getOnlineCount()) + "\n";
     for (int fd : this->client_fds)
     {
       if (fd != 0)
