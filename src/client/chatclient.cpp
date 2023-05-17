@@ -6,6 +6,7 @@
 ChatClient::ChatClient()
 {
   this->isRunning = false;
+  this->canWaitPackage = true;
   this->status = ClientStatus::IDLE;
 }
 
@@ -35,7 +36,7 @@ void ChatClient::init()
 
 int ChatClient::connectServer()
 {
-  this->ct_socket = socket(AF_INET, SOCK_STREAM, 0);
+  this->ct_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
   if (this->ct_socket == -1)
   {
@@ -72,15 +73,10 @@ int ChatClient::disconnect()
 
 int ChatClient::receivePackage(babble::BabblePackage &pkg)
 {
-  while (this->isRunning)
+  while (this->isRunning && this->canWaitPackage)
   {
     int ret = babble::recvPackage(this->ct_socket, pkg);
-    if (ret > 0)
-    {
-      // 收到了数据
-      // std::cout << "recv successfully." << std::endl;
-    }
-    else if (ret == 0)
+    if (ret == 0)
     {
       // 对端关闭了连接
       std::cout << "server close the socket." << std::endl;
@@ -103,10 +99,12 @@ int ChatClient::receivePackage(babble::BabblePackage &pkg)
       {
         // 真的出错了
         throw "recv data error.";
-        break;
       }
     }
-    return ret;
+    else if (ret > 0)
+    {
+      return ret;
+    }
   }
   return -1;
 }
@@ -140,9 +138,12 @@ int ChatClient::sendPackage(babble::BabblePackage package)
       // 对端关闭了连接
       return 0;
     }
-    return ret;
+    if (ret > 0)
+    {
+      return ret;
+    }
   }
-  return -2;
+  return -1;
 }
 
 void ChatClient::run()
@@ -188,14 +189,18 @@ void ChatClient::run()
       pkg.body.at("message") = buff;
       try
       {
+        std::cout << "@@@";
         this->sendPackage(pkg);
+        std::cout << "!!!";
       }
       catch (std::string &e)
       {
         std::cout << e << std::endl;
         break;
       }
+      std::cout << "bye";
       this->receivePackage(pkg);
+      std::cout << "hello";
       if (pkg.header.status == babble::BabbleStatus::INVALID)
       {
         std::cout << "Invalid:" << pkg.body.at("message") << std::endl;
@@ -236,6 +241,7 @@ void ChatClient::handleReceiveChat(void *client)
 
 void ChatClient::handleGroupChat(int group_id)
 {
+  std::cout << "group chat" << std::endl;
   babble::BabblePackage pkg;
   pkg.header.type = babble::BabbleType::MESSAGE;
   std::string raw = "";

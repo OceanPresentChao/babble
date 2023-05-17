@@ -29,6 +29,7 @@ public:
 private:
   int port;
   bool isRunning;
+  bool canWaitPackage;
   ClientStatus status;
   std::string host;
   std::thread recv_thread;

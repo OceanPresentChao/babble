@@ -186,6 +186,7 @@ void ChatServer::handleNewMessage(int client_fd)
     this->sendBroadcastMessage(babble::BabbleType::MESSAGE, babble::BabbleStatus::OK, message, group);
 
     message = "欢迎加入聊天室，当前在线人数：" + std::to_string(this->getGroupOnlineCount(group_id)) + "\n" + "您的名称为 " + this->getClientName(client_fd) + "\n";
+    this->sendPrivateMessage(babble::BabbleType::RESPONSE, babble::BabbleStatus::OK, "", client_fd);
     this->sendPrivateMessage(babble::BabbleType::MESSAGE, babble::BabbleStatus::OK, message, client_fd);
   }
   // 收到客户端断开消息

@@ -39,7 +39,7 @@ namespace babble
     BabbleStatus status;
     BabbleType type;
     // 算上包头的总长度
-    int length;
+    ssize_t length;
     int padding;
     BabbleHeader() : from(0), to(0), length(0){};
     BabbleHeader(int from, int to, BabbleStatus status, BabbleType type, int length) : from(from), to(to), status(status), type(type), length(length){};

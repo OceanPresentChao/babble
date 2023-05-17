@@ -8,3 +8,4 @@ include_directories(${PROJECT_SOURCE_DIR}/thirdparty)
 
 add_subdirectory(src/client)
 add_subdirectory(src/server)
+add_subdirectory(src/crawler)

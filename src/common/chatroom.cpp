@@ -11,7 +11,7 @@ json babble::loadConfig(std::string configfile)
 int babble::recvPackage(int client_fd, struct BabblePackage &package)
 {
   // recv()返回值为0表示对方关闭了连接，返回值为-1表示出错
-  int num_recv = recvN(client_fd, (char *)&package.header, sizeof(package.header));
+  ssize_t num_recv = recvN(client_fd, (char *)&package.header, BabblePkgHdrWidth);
   if (num_recv < 0)
   {
     return -1;
@@ -20,8 +20,8 @@ int babble::recvPackage(int client_fd, struct BabblePackage &package)
   {
     return 0;
   }
-  char buff[package.header.length - sizeof(package.header)]; // 用于存放报文体
-  num_recv = recvN(client_fd, buff, package.header.length - sizeof(package.header));
+  char buff[package.header.length - BabblePkgHdrWidth + 1]; // 用于存放报文体
+  num_recv = recvN(client_fd, buff, package.header.length - BabblePkgHdrWidth);
   if (num_recv < 0)
   {
     return -1;
@@ -30,7 +30,16 @@ int babble::recvPackage(int client_fd, struct BabblePackage &package)
   {
     return 0;
   }
-  package.body = json::parse(std::string(buff));
+  buff[package.header.length - BabblePkgHdrWidth] = '\0'; // json::parse()要求字符串以'\0'结尾
+  try
+  {
+    package.body = json::parse(std::string(buff));
+  }
+  catch (std::exception e)
+  {
+    std::cout << "json parse error" << std::endl;
+    return -1;
+  }
   std::cout << "@RecvN:" << package.header.length << package.body.dump() << std::endl;
   return package.header.length;
 }
@@ -39,19 +48,19 @@ int babble::recvPackage(int client_fd, struct BabblePackage &package)
 int babble::sendPackage(int client_fd, struct BabblePackage package)
 {
   const std::string json_str = package.body.dump();
-  int len = std::strlen(json_str.c_str());
-  int total_size = sizeof(package.header) + len;
+  ssize_t len = json_str.length();
+  ssize_t total_size = BabblePkgHdrWidth + len;
   package.header.length = total_size;
   char buff[total_size];
-  memcpy(buff, &package.header, sizeof(package.header));
-  memcpy(buff + sizeof(package.header), json_str.c_str(), len);
+  memcpy(buff, &package.header, BabblePkgHdrWidth);
+  memcpy(buff + BabblePkgHdrWidth, json_str.c_str(), len);
   return sendN(client_fd, buff, total_size);
 }
 
 int babble::recvN(int client_fd, char *buffer, int length)
 {
-  int num_recv = 0;
-  int num_left = length;
+  ssize_t num_recv = 0;
+  ssize_t num_left = length;
   while (num_left > 0)
   {
     num_recv = recv(client_fd, buffer, num_left, 0);
@@ -71,8 +80,8 @@ int babble::recvN(int client_fd, char *buffer, int length)
 
 int babble::sendN(int client_fd, char *buffer, int length)
 {
-  int num_send = 0;
-  int num_left = length;
+  ssize_t num_send = 0;
+  ssize_t num_left = length;
   while (num_left > 0)
   {
     num_send = send(client_fd, buffer, num_left, 0);
