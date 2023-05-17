@@ -1,35 +1,17 @@
 #include "ChatRoom.h"
 #include <iostream>
 
-std::string babble::formatMessage(struct BabbleMessage message)
-{
-  json j;
-  j["type"] = message.type;
-  j["code"] = message.code;
-  j["message"] = message.message;
-  j["to"] = message.to;
-  j["from"] = message.from;
-  return j.dump();
-}
-
-json babble::parseMessage(std::string message)
-{
-  return json::parse(message);
-}
-
 json babble::loadConfig(std::string configfile)
 {
   std::ifstream f(configfile);
   return json::parse(f);
 }
 
-// 返回接收到的报文体的长度
-int babble::recvMessage(int client_fd, std::string &message)
+// 返回接收到的报文的长度
+int babble::recvPackage(int client_fd, struct BabblePackage &package)
 {
-  BabblePackage pkg;
-  memset(&pkg, 0, sizeof(pkg));
   // recv()返回值为0表示对方关闭了连接，返回值为-1表示出错
-  int num_recv = recvN(client_fd, (char *)&pkg.length, BabblePkgWidth);
+  int num_recv = recvN(client_fd, (char *)&package.header, sizeof(package.header));
   if (num_recv < 0)
   {
     return -1;
@@ -38,7 +20,8 @@ int babble::recvMessage(int client_fd, std::string &message)
   {
     return 0;
   }
-  num_recv = recvN(client_fd, (char *)&pkg.message, pkg.length);
+  char buff[package.header.length - sizeof(package.header)]; // 用于存放报文体
+  num_recv = recvN(client_fd, buff, package.header.length - sizeof(package.header));
   if (num_recv < 0)
   {
     return -1;
@@ -47,20 +30,22 @@ int babble::recvMessage(int client_fd, std::string &message)
   {
     return 0;
   }
-  message = pkg.message;
-  return pkg.length;
+  package.body = json::parse(std::string(buff));
+  std::cout << "@RecvN:" << package.header.length << package.body.dump() << std::endl;
+  return package.header.length;
 }
 
-// 返回发送的报文体的长度
-int babble::sendMessage(int client_fd, struct BabbleMessage message)
+// 返回发送的报文体的长度(各个错误情况下，返回的值和send相同)
+int babble::sendPackage(int client_fd, struct BabblePackage package)
 {
-  std::string wrappedMsg = formatMessage(message);
-  BabblePackage pkg;
-  memset(&pkg, 0, sizeof(pkg));
-  pkg.length = strlen(wrappedMsg.c_str());
-  memcpy(pkg.message, wrappedMsg.c_str(), pkg.length);
-  sendN(client_fd, (char *)&pkg, pkg.length + BabblePkgWidth);
-  return pkg.length;
+  const std::string json_str = package.body.dump();
+  int len = std::strlen(json_str.c_str());
+  int total_size = sizeof(package.header) + len;
+  package.header.length = total_size;
+  char buff[total_size];
+  memcpy(buff, &package.header, sizeof(package.header));
+  memcpy(buff + sizeof(package.header), json_str.c_str(), len);
+  return sendN(client_fd, buff, total_size);
 }
 
 int babble::recvN(int client_fd, char *buffer, int length)

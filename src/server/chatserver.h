@@ -42,8 +42,8 @@ public:
   int listenClient();
   void run();
   int stop();
-  void sendPrivateMessage(int client_fd, babble::BabbleProtocol code, std::string message);
-  void sendBroadcastMessage(babble::BabbleProtocol code, std::string message, const std::set<int> &group);
+  int sendPrivateMessage(babble::BabbleType, babble::BabbleStatus, std::string, int);
+  void sendBroadcastMessage(babble::BabbleType, babble::BabbleStatus, std::string, const std::set<int> &);
 
 private:
   void handleNewConnection();

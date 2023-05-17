@@ -48,29 +48,101 @@ int ChatClient::connectServer()
     printf("Connect error(%d): %s\n", errno, strerror(errno));
     return -1;
   }
+
+  // 连接成功以后，我们再将 clientfd 设置成非阻塞模式，
+  // 不能在创建时就设置，这样会影响到 connect 函数的行为
+  int oldSocketFlag = fcntl(this->ct_socket, F_GETFL, 0);
+  int newSocketFlag = oldSocketFlag | O_NONBLOCK;
+  if (fcntl(this->ct_socket, F_SETFL, newSocketFlag) == -1)
+  {
+    this->disconnect();
+    std::cout << "set socket to nonblock error." << std::endl;
+    return -1;
+  }
+
   return 0;
 }
 
 int ChatClient::disconnect()
 {
+  this->isRunning = false;
   close(this->ct_socket);
   return 0;
 }
 
-json ChatClient::receiveMessage()
+int ChatClient::receivePackage(babble::BabblePackage &pkg)
 {
-  std::string recvMsg;
-  int num_recv = babble::recvMessage(this->ct_socket, recvMsg);
-  if (num_recv <= 0)
+  while (this->isRunning)
   {
-    std::cout << "Tip: No Message Received!" << std::endl;
+    int ret = babble::recvPackage(this->ct_socket, pkg);
+    if (ret > 0)
+    {
+      // 收到了数据
+      // std::cout << "recv successfully." << std::endl;
+    }
+    else if (ret == 0)
+    {
+      // 对端关闭了连接
+      std::cout << "server close the socket." << std::endl;
+      return 0;
+    }
+    else if (ret == -1)
+    {
+      if (errno == EWOULDBLOCK)
+      {
+        // std::cout << "There is no data available now." << std::endl;
+        continue;
+      }
+      else if (errno == EINTR)
+      {
+        // 如果被信号中断了，则继续重试recv函数
+        std::cout << "recv data interrupted by signal." << std::endl;
+        continue;
+      }
+      else
+      {
+        // 真的出错了
+        throw "recv data error.";
+        break;
+      }
+    }
+    return ret;
   }
-  return babble::parseMessage(recvMsg);
+  return -1;
 }
 
-int ChatClient::sendMessage(babble::BabbleMessage message)
+int ChatClient::sendPackage(babble::BabblePackage package)
 {
-  return babble::sendMessage(this->ct_socket, message);
+  while (this->isRunning)
+  {
+    int ret = babble::sendPackage(this->ct_socket, package);
+    if (ret == -1)
+    {
+      // 非阻塞模式下send函数由于TCP窗口太小发不出去数据，错误码是EWOULDBLOCK
+      if (errno == EWOULDBLOCK)
+      {
+        std::cout << "send data error as TCP Window size is too small." << std::endl;
+        continue;
+      }
+      else if (errno == EINTR)
+      {
+        // 如果被信号中断
+        std::cout << "sending data interrupted by signal." << std::endl;
+        continue;
+      }
+      else
+      {
+        throw "send data error.";
+      }
+    }
+    if (ret == 0)
+    {
+      // 对端关闭了连接
+      return 0;
+    }
+    return ret;
+  }
+  return -2;
 }
 
 void ChatClient::run()
@@ -83,14 +155,19 @@ void ChatClient::run()
     std::cout << "1.进入全局聊天" << std::endl;
     std::cout << "2.开始私聊" << std::endl;
     std::cout << "3.退出" << std::endl;
+
+    int send_num = 0;
     std::string buff;
+    babble::BabblePackage pkg;
+
     buff.clear();
     std::cin >> buff;
+
     switch (buff[0])
     {
     case '1':
     {
-      babble::BabbleMessage msg(babble::BabbleProtocol::JOIN, babble::BabbleType::SERVER);
+      pkg.header.type = babble::BabbleType::JOIN;
       std::cout << "请输入聊天室序号:";
       buff.clear();
       std::cin >> buff;
@@ -108,12 +185,20 @@ void ChatClient::run()
         std::cout << "非法序号！" << std::endl;
         break;
       }
-      msg.message = buff;
-      this->sendMessage(msg);
-      json recvMsg = this->receiveMessage();
-      if (recvMsg["code"].get<int>() == babble::BabbleProtocol::INVALID)
+      pkg.body.at("message") = buff;
+      try
       {
-        std::cout << "Invalid:" << recvMsg["message"].get<std::string>() << std::endl;
+        this->sendPackage(pkg);
+      }
+      catch (std::string &e)
+      {
+        std::cout << e << std::endl;
+        break;
+      }
+      this->receivePackage(pkg);
+      if (pkg.header.status == babble::BabbleStatus::INVALID)
+      {
+        std::cout << "Invalid:" << pkg.body.at("message") << std::endl;
       }
       else
       {
@@ -121,53 +206,10 @@ void ChatClient::run()
       }
       break;
     }
-    case '2':
-    {
-      babble::BabbleMessage msg(babble::BabbleProtocol::QUERY, babble::BabbleType::SERVER);
-      this->sendMessage(msg);
-      json recvMsg = this->receiveMessage();
-      std::cout << recvMsg["message"].get<std::string>() << std::endl;
-
-      msg.code = babble::BabbleProtocol::NEW_SESS;
-
-      std::cout << "请输入私聊用户端口号:";
-      buff.clear();
-      std::cin >> buff;
-      if (buff == "#exit")
-      {
-        break;
-      }
-      try
-      {
-        msg.to = std::stoi(buff);
-        msg.from = this->ct_socket;
-      }
-      catch (std::invalid_argument &)
-      {
-        std::cout << "非法序号！" << std::endl;
-        break;
-      }
-      msg.message = buff;
-
-      this->sendMessage(msg);
-      recvMsg = this->receiveMessage();
-      if (recvMsg["code"].get<int>() == babble::BabbleProtocol::INVALID)
-      {
-        std::cout << "Invalid:" << recvMsg["message"].get<std::string>() << std::endl;
-      }
-      else
-      {
-        std::cout << recvMsg["message"].get<std::string>() << std::endl;
-        this->handlePrivateChat(msg.to);
-      }
-      break;
-    }
     case '3':
     {
-      this->isRunning = false;
       break;
     }
-
     default:
       break;
     }
@@ -179,12 +221,13 @@ void ChatClient::run()
 void ChatClient::handleReceiveChat(void *client)
 {
   ChatClient *chatClient = (ChatClient *)client;
+  babble::BabblePackage pkg;
   while (chatClient->isRunning && chatClient->status == ClientStatus::CHATTING)
   {
-    json j = chatClient->receiveMessage();
-    std::string message = j["message"].get<std::string>();
-    babble::BabbleProtocol code = (babble::BabbleProtocol)j["code"].get<int>();
-    if (code == babble::BabbleProtocol::MESSAGE)
+    chatClient->receivePackage(pkg);
+    std::string message = pkg.body.at("message");
+    babble::BabbleType type = pkg.header.type;
+    if (type == babble::BabbleType::MESSAGE)
     {
       std::cout << message << std::endl;
     }
@@ -193,7 +236,8 @@ void ChatClient::handleReceiveChat(void *client)
 
 void ChatClient::handleGroupChat(int group_id)
 {
-  babble::BabbleMessage msg(babble::BabbleProtocol::MESSAGE, babble::BabbleType::BROAD);
+  babble::BabblePackage pkg;
+  pkg.header.type = babble::BabbleType::MESSAGE;
   std::string raw = "";
 
   this->status = ClientStatus::CHATTING;
@@ -201,47 +245,19 @@ void ChatClient::handleGroupChat(int group_id)
   this->recv_thread = std::move(t1);
   this->recv_thread.detach();
 
-  msg.to = group_id;
+  pkg.header.to = group_id;
 
   while (this->isRunning && this->status == ClientStatus::CHATTING)
   {
     std::cout << "请输入：" << std::endl;
     raw.clear();
     std::cin >> raw;
-    msg.message = raw;
+    pkg.body.at("message") = raw;
     if (raw == "#exit")
     {
-      msg.code = babble::BabbleProtocol::EXIT;
-      msg.type = babble::BabbleType::SERVER;
+      pkg.header.type = babble::BabbleType::EXIT;
       this->status = ClientStatus::IDLE;
     }
-    this->sendMessage(msg);
-  }
-}
-
-void ChatClient::handlePrivateChat(int to)
-{
-  babble::BabbleMessage msg(babble::BabbleProtocol::MESSAGE, babble::BabbleType::PRIVATE);
-  std::string raw = "";
-
-  this->status = ClientStatus::CHATTING;
-  std::thread t1(ChatClient::handleReceiveChat, (void *)this);
-  this->recv_thread = std::move(t1);
-  this->recv_thread.detach();
-
-  while (this->isRunning && this->status == ClientStatus::CHATTING)
-  {
-    std::cout << "请输入：" << std::endl;
-    raw.clear();
-    std::cin >> raw;
-    msg.message = raw;
-    msg.to = to;
-    if (raw == "#exit")
-    {
-      this->status = ClientStatus::IDLE;
-      msg.code = babble::BabbleProtocol::CLOSE_SESS;
-      msg.type = babble::BabbleType::SERVER;
-    }
-    this->sendMessage(msg);
+    this->sendPackage(pkg);
   }
 }

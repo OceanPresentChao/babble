@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/errno.h>
+#include <sys/fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
@@ -31,8 +32,8 @@ private:
   ClientStatus status;
   std::string host;
   std::thread recv_thread;
-  json receiveMessage();
-  int sendMessage(babble::BabbleMessage);
+  int receivePackage(babble::BabblePackage &);
+  int sendPackage(babble::BabblePackage);
 
 public:
   ChatClient();

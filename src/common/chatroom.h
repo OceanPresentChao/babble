@@ -13,7 +13,13 @@ using json = nlohmann::json;
 namespace babble
 {
 
-  enum BabbleProtocol
+  enum BabbleStatus
+  {
+    INVALID = 0,
+    OK = 1
+  };
+
+  enum BabbleType
   {
     LOGIN = 0,
     LOGOUT = 1,
@@ -23,50 +29,42 @@ namespace babble
     CLOSE_SESS = 5,
     MESSAGE = 6,
     QUERY = 7,
-    INVALID = 8,
-    OK = 9
+    RESPONSE = 8
   };
 
-  enum BabbleType
+  struct BabbleHeader
   {
-    BROAD = -1,
-    PRIVATE = -2,
-    SERVER = -3,
+    int from;
+    int to;
+    BabbleStatus status;
+    BabbleType type;
+    // 算上包头的总长度
+    int length;
+    int padding;
+    BabbleHeader() : from(0), to(0), length(0){};
+    BabbleHeader(int from, int to, BabbleStatus status, BabbleType type, int length) : from(from), to(to), status(status), type(type), length(length){};
   };
 
-  const unsigned int BabblePkgWidth = sizeof(int);
+  const unsigned int BabblePkgHdrWidth = sizeof(BabbleHeader);
 
   struct BabblePackage
   {
-    int length;
-    char message[BUFFSIZE];
+    struct BabbleHeader header;
+    json body;
+    BabblePackage()
+    {
+      body = json::parse(R"(
+        {
+          "message": ""
+        }
+      )");
+    }
+    BabblePackage(struct BabbleHeader header, json body) : header(header), body(body){};
   };
 
-  struct BabbleMessage
-  {
-    BabbleProtocol code;
-    BabbleType type;
-    std::string message;
-    int from;
-    int to;
-    BabbleMessage() : code(BabbleProtocol::INVALID), type(BabbleType::SERVER), from(0), to(0)
-    {
-    }
-    BabbleMessage(BabbleProtocol code, BabbleType type) : from(0), to(0)
-    {
-      this->code = code;
-      this->type = type;
-      this->message = "";
-    }
-  };
+  int recvPackage(int client_fd, struct BabblePackage &package);
 
-  std::string formatMessage(struct BabbleMessage message);
-
-  json parseMessage(std::string message);
-
-  int recvMessage(int client_fd, std::string &message);
-
-  int sendMessage(int client_fd, struct BabbleMessage message);
+  int sendPackage(int client_fd, struct BabblePackage package);
 
   int recvN(int client_fd, char *buffer, int length);
 
